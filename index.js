@@ -10,11 +10,27 @@ app.use(express.json());
 const port = process.env.PORT || 3000;
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 
+// Cloudinary setup for images & file upload
+const cloudinary = require('cloudinary').v2;
+const { CloudinaryStorage } = require('multer-storage-cloudinary');
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET
+});
+const storage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    folder: 'hirenest',
+    allowed_formats: ['jpg', 'jpeg', 'png', 'pdf'],
+    transformation: [{ width: 500, height: 500, crop: 'limit' }] // For images
+  }
+});
+const upload = multer({ storage });
 
-// Connecting mongodb securely with the help of dotenv
+
+// mongoDB setup
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@userhandling.g6xehje.mongodb.net/?retryWrites=true&w=majority&appName=userHandling`;
-
-
 const client = new MongoClient(uri, {
   serverApi: {
     version: ServerApiVersion.v1,
@@ -29,13 +45,13 @@ async function run() {
     await client.connect();
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
-    console.log("Pinged your deployment. You successfully connected to MongoDB!");
+    // console.log("Pinged your deployment. You successfully connected to MongoDB!");
 
   } finally {
     // ....
   }
 }
-run().catch(console.dir);
+run().catch(/* console.dir */);
 
 
 
@@ -48,33 +64,27 @@ app.get('/', (req, res) => {
 })
 
 //// creating/posting/inserting data and handling file upload with the help of multer
-// Configure multer for file storage
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, 'uploads/'); // Create this folder
-  },
-  filename: (req, file, cb) => {
-    cb(null, Date.now() + path.extname(file.originalname));
-  }
-});
-const upload = multer({ storage });
 
-// Change from single() to fields() for multiple files
 app.post('/addjob', upload.fields([
   { name: 'company_logo', maxCount: 1 },
   { name: 'pdf_file', maxCount: 1 }
 ]), async (req, res) => {
-  const jobData = {
-    ...req.body,
-    company_logo: req.files.company_logo ? `/uploads/${req.files.company_logo[0].filename}` : null,
-    pdf_file: req.files.pdf_file ? `/uploads/${req.files.pdf_file[0].filename}` : null,
-    createdAt: new Date()
-  };
+  try {
+    const jobData = {
+      ...req.body,
+      company_logo: req.files.company_logo ? req.files.company_logo[0].path : null,
+      pdf_file: req.files.pdf_file ? req.files.pdf_file[0].path : null,
+      createdAt: new Date()
+    };
 
-  const result = await myCollection.insertOne(jobData);
-  res.send(result);
+    const result = await myCollection.insertOne(jobData);
+    res.send(result);
+  } catch (error) {
+    // console.error('Job creation error:', error);
+    res.status(500).send({ error: 'Failed to create job' });
+  }
 });
-app.use('/uploads', express.static('uploads'));
+
 
 //// Read/get/find the data
 app.get('/jobs', async (req, res) => {
@@ -105,7 +115,7 @@ app.put('/users/:id', async (req, res) => {
   res.send(result);
 });
 
-//// Delete a coffee
+//// Delete method
 // app.delete('/coffees/:id', async (req, res) => {
 //     const id = req.params.id;
 //     const query = { _id: new ObjectId(id) }
@@ -115,7 +125,7 @@ app.put('/users/:id', async (req, res) => {
 
 
 
-app.listen(port, () => {
-  console.log(`The server is running on port: ${port}`);
-});
-// module.exports = app;
+// app.listen(port, () => {
+//   // console.log(`The server is running on port: ${port}`);
+// });
+module.exports = app;
