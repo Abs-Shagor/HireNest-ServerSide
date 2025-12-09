@@ -20,11 +20,21 @@ cloudinary.config({
 });
 const storage = new CloudinaryStorage({
   cloudinary: cloudinary,
-  params: {
-    folder: 'hirenest',
-    allowed_formats: ['jpg', 'jpeg', 'png', 'pdf'],
-    transformation: [{ width: 500, height: 500, crop: 'limit' }] // For images
-  }
+  params: (req, file) => {
+    if (file.mimetype === 'application/pdf') {
+      return {
+        folder: 'hirenest',
+        resource_type: 'raw',
+        format: 'pdf',
+      };
+    }
+    return {
+      folder: 'hirenest',
+      resource_type: 'image',
+      allowed_formats: ['jpg', 'png', 'jpeg'],
+      transformation: [{ width: 500, height: 500, crop: 'limit' }]
+    };
+  },
 });
 const upload = multer({ storage });
 
@@ -70,17 +80,21 @@ app.post('/addjob', upload.fields([
   { name: 'pdf_file', maxCount: 1 }
 ]), async (req, res) => {
   try {
+    // the image and pdf uploaded in the cloudinary successfully but cloudinary restrict pdf fetching
+    // for free user. Image is free to use. so we upload a pdf in our drive and just show the same pdf
+    const googleDrivePDF = "https://drive.google.com/file/d/1oNYZyfYzKca7cyWVl4mFhz_WVp8SHEnR/preview";
+
     const jobData = {
       ...req.body,
       company_logo: req.files.company_logo ? req.files.company_logo[0].path : null,
-      pdf_file: req.files.pdf_file ? req.files.pdf_file[0].path : null,
+      pdf_file: googleDrivePDF, // Always use this Google Drive link
       createdAt: new Date()
     };
 
     const result = await myCollection.insertOne(jobData);
     res.send(result);
   } catch (error) {
-    // console.error('Job creation error:', error);
+    console.error('Job creation error:', error);
     res.status(500).send({ error: 'Failed to create job' });
   }
 });
@@ -115,17 +129,7 @@ app.put('/users/:id', async (req, res) => {
   res.send(result);
 });
 
-//// Delete method
-// app.delete('/coffees/:id', async (req, res) => {
-//     const id = req.params.id;
-//     const query = { _id: new ObjectId(id) }
-//     const result = await myCollection.deleteOne(query);
-//     res.send(result);
-// })
-
-
-
-// app.listen(port, () => {
-//   // console.log(`The server is running on port: ${port}`);
-// });
-module.exports = app;
+app.listen(port, () => {
+  // console.log(`The server is running on port: ${port}`);
+});
+// module.exports = app;
