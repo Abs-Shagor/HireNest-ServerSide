@@ -129,6 +129,19 @@ app.put('/users/:id', async (req, res) => {
   res.send(result);
 });
 
+// Delete job by ID
+app.delete('/jobs/:id', async (req, res) => {
+  try {
+    const id = req.params.id;
+    const query = { _id: new ObjectId(id) };
+    const result = await myCollection.deleteOne(query);
+    res.send(result);
+  } catch (error) {
+    res.status(500).send({ error: 'Failed to delete job' });
+  }
+});
+
+
 app.listen(port, () => {
   // console.log(`The server is running on port: ${port}`);
 });
